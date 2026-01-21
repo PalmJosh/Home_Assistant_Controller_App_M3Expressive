@@ -92,4 +92,6 @@ Contributions are welcome! If you find a bug or want to suggest a feature that a
 
 ## License
 
+Based on the Home Assistant API by the Open Home Foundation.
+
 This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
