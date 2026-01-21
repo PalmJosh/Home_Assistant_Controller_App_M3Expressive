@@ -1,0 +1,44 @@
+<resources>
+    <string name="app_name">HA Controller</string>
+    <string name="login_welcome_title">Willkommen bei HA Controller</string>
+    <string name="login_welcome_message">Verbinde dein Home Assistant, um zu beginnen.</string>
+    <string name="login_url_label">Instanz-URL</string>
+    <string name="login_url_placeholder">http://192.168.1.x:8123</string>
+    <string name="login_connect_button">Verbinden</string>
+
+    <!-- Home Screen -->
+    <string name="home_title">Mein Zuhause</string>
+    <string name="devices_title">Alle Geräte</string>
+    <string name="settings">Einstellungen</string>
+    <string name="tab_rooms">Räume</string>
+    <string name="tab_devices">Geräte</string>
+    <string name="filter_all">Alle</string>
+    <string name="no_rooms_found">Keine Räume gefunden.</string>
+    <string name="no_lights_found">Keine Lampen gefunden.</string>
+    <string name="master_brightness">Gesamthelligkeit</string>
+    <string name="devices_list_title">Geräte</string>
+    <string name="unknown_device_name">Unbekannt</string>
+    <string name="status_on">AN</string>
+    <string name="status_off">AUS</string>
+    <string name="room_status_on_count">%1$d / %2$d An</string>
+    <string name="room_status_empty">Leer</string>
+    <string name="light_settings_title">Licht-Einstellungen</string>
+    <string name="brightness_label">Helligkeit</string>
+    <string name="color_label">Farbe</string>
+    <string name="temperature_presets_label">Temperatur-Voreinstellungen</string>
+    <string name="preset_cool">Kalt</string>
+    <string name="preset_neutral">Neutral</string>
+    <string name="preset_warm">Warm</string>
+    <string name="preset_fire">Feuer</string>
+
+    <!-- Settings Screen -->
+    <string name="settings_back">Zurück</string>
+    <string name="settings_hello">Hallo, %1$s</string>
+    <string name="settings_core">Core</string>
+    <string name="settings_not_available">n. v.</string>
+    <string name="settings_server">Server</string>
+    <string name="settings_online">Online</string>
+    <string name="settings_connection">Verbindung</string>
+    <string name="settings_instance_url">Instanz-URL</string>
+    <string name="settings_disconnect">Konto trennen</string>
+</resources>

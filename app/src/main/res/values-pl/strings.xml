@@ -1,0 +1,44 @@
+<resources>
+    <string name="app_name">HA Controller</string>
+    <string name="login_welcome_title">Witaj w HA Controller</string>
+    <string name="login_welcome_message">Połącz się z Home Assistant, aby rozpocząć.</string>
+    <string name="login_url_label">URL instancji</string>
+    <string name="login_url_placeholder">http://192.168.1.x:8123</string>
+    <string name="login_connect_button">Połącz</string>
+
+    <!-- Home Screen -->
+    <string name="home_title">Mój dom</string>
+    <string name="devices_title">Wszystkie urządzenia</string>
+    <string name="settings">Ustawienia</string>
+    <string name="tab_rooms">Pokoje</string>
+    <string name="tab_devices">Urządzenia</string>
+    <string name="filter_all">Wszystkie</string>
+    <string name="no_rooms_found">Nie znaleziono pokojów.</string>
+    <string name="no_lights_found">Nie znaleziono świateł.</string>
+    <string name="master_brightness">Jasność główna</string>
+    <string name="devices_list_title">Urządzenia</string>
+    <string name="unknown_device_name">Nieznane</string>
+    <string name="status_on">WŁ.</string>
+    <string name="status_off">WYŁ.</string>
+    <string name="room_status_on_count">%1$d / %2$d Wł.</string>
+    <string name="room_status_empty">Pusty</string>
+    <string name="light_settings_title">Ustawienia światła</string>
+    <string name="brightness_label">Jasność</string>
+    <string name="color_label">Kolor</string>
+    <string name="temperature_presets_label">Presety temperatury</string>
+    <string name="preset_cool">Chłodne</string>
+    <string name="preset_neutral">Neutralne</string>
+    <string name="preset_warm">Ciepłe</string>
+    <string name="preset_fire">Ogień</string>
+
+    <!-- Settings Screen -->
+    <string name="settings_back">Powrót</string>
+    <string name="settings_hello">Cześć, %1$s</string>
+    <string name="settings_core">Rdzeń</string>
+    <string name="settings_not_available">Brak danych</string>
+    <string name="settings_server">Serwer</string>
+    <string name="settings_online">Online</string>
+    <string name="settings_connection">Połączenie</string>
+    <string name="settings_instance_url">URL instancji</string>
+    <string name="settings_disconnect">Odłącz konto</string>
+</resources>
