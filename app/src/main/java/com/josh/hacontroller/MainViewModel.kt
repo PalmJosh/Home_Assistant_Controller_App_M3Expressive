@@ -18,9 +18,9 @@ import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.launch
 import okhttp3.OkHttpClient
 import okhttp3.Request
-import okhttp3.Response
 import okhttp3.WebSocket
 import okhttp3.WebSocketListener
+import retrofit2.HttpException
 import retrofit2.Retrofit
 import retrofit2.converter.gson.GsonConverterFactory
 
@@ -34,10 +34,14 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
 
     private val URL_KEY = stringPreferencesKey("base_url")
     private val TOKEN_KEY = stringPreferencesKey("auth_token")
+    private val REFRESH_TOKEN_KEY = stringPreferencesKey("refresh_token")
 
-    // State Flows
     private val _lights = MutableStateFlow<List<HaEntity>>(emptyList())
     val lights = _lights.asStateFlow()
+
+    // NEU: Sensoren Flow
+    private val _sensors = MutableStateFlow<List<HaEntity>>(emptyList())
+    val sensors = _sensors.asStateFlow()
 
     private val _areas = MutableStateFlow<List<HaArea>>(emptyList())
     val areas = _areas.asStateFlow()
@@ -52,7 +56,7 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
     val authState = _authState.asStateFlow()
 
     val settingsFlow = context.dataStore.data.map { prefs ->
-        Pair(prefs[URL_KEY] ?: "", prefs[TOKEN_KEY] ?: "")
+        Triple(prefs[URL_KEY] ?: "", prefs[TOKEN_KEY] ?: "", prefs[REFRESH_TOKEN_KEY] ?: "")
     }
 
     private var apiService: HomeAssistantService? = null
@@ -67,17 +71,17 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
     }
 
     init {
-        // Auto-login
         viewModelScope.launch {
-            context.dataStore.data.map { prefs -> Pair(prefs[URL_KEY], prefs[TOKEN_KEY]) }
-                .collect { (url, token) ->
-                    if (!url.isNullOrBlank() && !token.isNullOrBlank()) {
-                        initConnection(url, token)
-                        _authState.value = AuthState.LoggedIn
-                    } else {
-                        _authState.value = AuthState.LoggedOut
-                    }
+            context.dataStore.data.map { prefs ->
+                Pair(prefs[URL_KEY], prefs[TOKEN_KEY])
+            }.collect { (url, token) ->
+                if (!url.isNullOrBlank() && !token.isNullOrBlank()) {
+                    initConnection(url, token)
+                    _authState.value = AuthState.LoggedIn
+                } else {
+                    _authState.value = AuthState.LoggedOut
                 }
+            }
         }
     }
 
@@ -91,39 +95,113 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
 
             apiService = retrofit.create(HomeAssistantService::class.java)
 
+            // ÄNDERUNG: Wir starten alles parallel, nicht nacheinander!
+
+            // 1. WebSocket verbinden
             viewModelScope.launch {
-                refreshData(token)
                 connectWebSocket(cleanUrl, token)
+            }
+
+            // 2. Server Infos (Name, Version) laden - SOFORT
+            viewModelScope.launch {
                 fetchServerInfo(token)
             }
-        } catch (e: Exception) { e.printStackTrace() }
+
+            // 3. Geräte laden
+            viewModelScope.launch {
+                refreshData(token)
+            }
+
+        } catch (e: Exception) {
+            e.printStackTrace()
+        }
+    }
+
+    private fun fetchServerInfo(token: String) {
+        viewModelScope.launch {
+            try {
+                // Nur getConfig aufrufen (das enthält Version UND Name des Hauses)
+                val config = apiService?.getConfig("Bearer $token")
+
+                val locationName = config?.locationName ?: "My Home"
+                val version = config?.version ?: "Unknown"
+
+                // Update UI
+                _serverInfo.value = Pair(locationName, version)
+
+            } catch (e: HttpException) {
+                // WICHTIG: Token Refresh Logik auch hier einbauen (gegen den 401 Fehler)
+                if (e.code() == 401) {
+                    Log.w("MainViewModel", "401 in fetchServerInfo - trying refresh")
+                    if (attemptTokenRefresh()) {
+                        val newToken = context.dataStore.data.first()[TOKEN_KEY]
+                        if (newToken != null) fetchServerInfo(newToken) // Retry mit neuem Token
+                    }
+                } else {
+                    Log.e("MainViewModel", "Http Error in fetchServerInfo: ${e.code()}")
+                }
+            } catch (e: Exception) {
+                Log.e("MainViewModel", "Error fetching server info: ${e.message}")
+                _serverInfo.value = Pair("Home Assistant", "Unknown")
+            }
+        }
     }
 
     private suspend fun refreshData(token: String) {
         try {
-            // 1. Fetch States
             val currentStates = apiService?.getStates("Bearer $token") ?: emptyList()
+
+            // 1. Filter Lights
             val justLights = currentStates.filter { it.entityId.startsWith("light.") }
 
-            // 2. Fetch Locations via Template
+            // 2. Filter Sensors (Umfassend erweitert)
+            val relevantDeviceClasses = listOf(
+                // Klima & Analog
+                "temperature", "illuminance", "humidity", "pressure", "battery", "power", "energy", "signal_strength",
+                // Bewegung & Präsenz
+                "motion", "occupancy", "presence",
+                // Zugang & Sicherheit
+                "door", "garage_door", "window", "opening", "lock",
+                // Gefahren (Binary)
+                "smoke", "gas", "moisture", "vibration", "safety", "problem", "sound"
+            )
+
+            val justSensors = currentStates.filter { entity ->
+                val domain = entity.entityId.split(".")[0]
+                val dc = entity.attributes.deviceClass
+                (domain == "sensor" || domain == "binary_sensor") && dc != null && relevantDeviceClasses.contains(dc)
+            }
+
+            // 3. Template für Areas (Jetzt mit allen Sensor-Typen)
+            // Hinweis: Wir prüfen im Template nicht mehr jede Klasse einzeln, um den String kurz zu halten.
+            // Wir prüfen nur, ob es ein Sensor/Licht ist. Die Filterung passierte ja schon in Schritt 2.
             val templateString = """
                 [
-                {%- for state in states.light -%}
-                  {
-                    "id": "{{ state.entity_id }}",
-                    "area_id": "{{ area_id(state.entity_id) }}",
-                    "area_name": "{{ area_name(state.entity_id) }}"
-                  }
-                  {%- if not loop.last -%},{%- endif -%}
+                {%- set ns = namespace(first=true) -%}
+                {%- for state in states -%}
+                  {%- if state.entity_id.startswith('light.') 
+                      or state.entity_id.startswith('sensor.') 
+                      or state.entity_id.startswith('binary_sensor.') 
+                  -%}
+                    {%- if not ns.first -%},{%- endif -%}
+                    {%- set ns.first = false -%}
+                    {
+                      "id": "{{ state.entity_id }}",
+                      "area_id": "{{ area_id(state.entity_id) }}",
+                      "area_name": "{{ area_name(state.entity_id) }}"
+                    }
+                  {%- endif -%}
                 {%- endfor -%}
                 ]
             """.trimIndent()
 
             val locations = try {
                 apiService?.getLightLocations("Bearer $token", TemplateRequest(templateString)) ?: emptyList()
-            } catch (e: Exception) { emptyList() }
+            } catch (e: Exception) {
+                Log.e("MainViewModel", "Template Error: ${e.message}")
+                emptyList()
+            }
 
-            // 3. Process Data
             val entityToAreaIdMap = locations.associate { it.entityId to it.areaId }
 
             val uniqueAreas = locations
@@ -139,19 +217,56 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
                 }
             }
 
+            val enrichedSensors = justSensors.map { sensor ->
+                sensor.apply {
+                    val foundId = entityToAreaIdMap[sensor.entityId]
+                    areaId = if (foundId == "None" || foundId.isNullOrBlank()) null else foundId
+                }
+            }
+
             _areas.value = uniqueAreas
             _lights.value = enrichedLights
+            _sensors.value = enrichedSensors
 
+        } catch (e: HttpException) {
+            if (e.code() == 401) {
+                if (attemptTokenRefresh()) {
+                    val newToken = context.dataStore.data.first()[TOKEN_KEY]
+                    if (newToken != null) refreshData(newToken)
+                } else {
+                    logout()
+                }
+            }
         } catch (e: Exception) { e.printStackTrace() }
     }
 
-    private fun fetchServerInfo(token: String) {
-        viewModelScope.launch {
-            try {
-                val config = apiService?.getConfig("Bearer $token")
-                val user = apiService?.getCurrentUser("Bearer $token")
-                _serverInfo.value = Pair(user?.name ?: "User", config?.version ?: "Unknown")
-            } catch (e: Exception) { }
+    private suspend fun attemptTokenRefresh(): Boolean {
+        // ... (unverändert)
+        val prefs = context.dataStore.data.first()
+        val refreshToken = prefs[REFRESH_TOKEN_KEY]
+        val baseUrl = prefs[URL_KEY]
+
+        if (refreshToken.isNullOrBlank() || baseUrl.isNullOrBlank()) return false
+
+        return try {
+            val cleanUrl = if (baseUrl.endsWith("/")) baseUrl else "$baseUrl/"
+            val retrofit = Retrofit.Builder()
+                .baseUrl(cleanUrl)
+                .addConverterFactory(GsonConverterFactory.create())
+                .build()
+            val tempService = retrofit.create(HomeAssistantService::class.java)
+
+            val response = tempService.refreshToken(
+                refreshToken = refreshToken,
+                clientId = CLIENT_ID
+            )
+
+            context.dataStore.edit { it[TOKEN_KEY] = response.accessToken }
+            initConnection(baseUrl, response.accessToken)
+            true
+        } catch (e: Exception) {
+            Log.e("MainViewModel", "Refresh failed", e)
+            false
         }
     }
 
@@ -159,7 +274,6 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
         _selectedArea.value = areaId
     }
 
-    // --- WEBSOCKET ---
     private fun connectWebSocket(baseUrl: String, token: String) {
         webSocket?.close(1000, null)
         val wsUrl = baseUrl.replace("http", "ws") + "api/websocket"
@@ -184,10 +298,9 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
                     val data = event.get("data").asJsonObject
                     val entityId = data.get("entity_id").asString
 
-                    if (entityId.startsWith("light.")) {
+                    if (entityId.startsWith("light.") || entityId.startsWith("sensor.") || entityId.startsWith("binary_sensor.")) {
                         val newStateJson = data.get("new_state").asJsonObject
-                        val newEntity = gson.fromJson(newStateJson, HaEntity::class.java)
-                        updateLocalList(newEntity)
+                        updateLocalList(gson.fromJson(newStateJson, HaEntity::class.java))
                     }
                 }
             }
@@ -195,23 +308,32 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
     }
 
     private fun updateLocalList(updatedEntity: HaEntity) {
-        val currentList = _lights.value.toMutableList()
-        val index = currentList.indexOfFirst { it.entityId == updatedEntity.entityId }
-
-        if (index != -1) {
-            val existingItem = currentList[index]
-            updatedEntity.areaId = existingItem.areaId // Preserve Area ID
-            currentList[index] = updatedEntity
-            _lights.value = currentList
+        // Update Lights
+        if (updatedEntity.entityId.startsWith("light.")) {
+            val currentList = _lights.value.toMutableList()
+            val index = currentList.indexOfFirst { it.entityId == updatedEntity.entityId }
+            if (index != -1) {
+                updatedEntity.areaId = currentList[index].areaId
+                currentList[index] = updatedEntity
+                _lights.value = currentList
+            }
+        }
+        // Update Sensors
+        else {
+            val currentList = _sensors.value.toMutableList()
+            val index = currentList.indexOfFirst { it.entityId == updatedEntity.entityId }
+            if (index != -1) {
+                updatedEntity.areaId = currentList[index].areaId
+                currentList[index] = updatedEntity
+                _sensors.value = currentList
+            }
         }
     }
 
-    // --- ACTIONS ---
-
+    // ... (Toggle Funktionen bleiben identisch)
     fun toggleLight(entity: HaEntity, token: String) {
         val wasOn = entity.state == "on"
         val newState = if (wasOn) "off" else "on"
-
         val optimisticEntity = entity.copy(state = newState)
         optimisticEntity.areaId = entity.areaId
         updateLocalList(optimisticEntity)
@@ -221,9 +343,7 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
                 val payload = ServicePayload(entityId = entity.entityId)
                 if (wasOn) apiService?.turnOff("Bearer $token", payload)
                 else apiService?.turnOn("Bearer $token", payload)
-            } catch (e: Exception) {
-                updateLocalList(entity) // Revert
-            }
+            } catch (e: Exception) { updateLocalList(entity) }
         }
     }
 
@@ -231,11 +351,7 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
         val lightsInArea = _lights.value.filter { it.areaId == area.areaId }
         val isAnyOn = lightsInArea.any { it.state == "on" }
         val newState = if (isAnyOn) "off" else "on"
-
-        // Optimistic
-        val updatedList = _lights.value.map {
-            if (it.areaId == area.areaId) it.copy(state = newState) else it
-        }
+        val updatedList = _lights.value.map { if (it.areaId == area.areaId) it.copy(state = newState) else it }
         _lights.value = updatedList
 
         viewModelScope.launch {
@@ -243,41 +359,30 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
                 val payload = AreaPayload(areaId = area.areaId)
                 if (isAnyOn) apiService?.turnOffArea("Bearer $token", payload)
                 else apiService?.turnOnArea("Bearer $token", payload)
-            } catch (e: Exception) { e.printStackTrace() }
+            } catch (e: Exception) { }
         }
     }
 
     fun updateLightState(entityId: String, brightness: Int, color: List<Int>, token: String) {
         viewModelScope.launch {
-            val payload = ServicePayload(entityId = entityId, brightness = brightness, rgbColor = color)
-            apiService?.turnOn("Bearer $token", payload)
+            try {
+                val payload = ServicePayload(entityId = entityId, brightness = brightness, rgbColor = color)
+                apiService?.turnOn("Bearer $token", payload)
+            } catch (e: Exception) { }
         }
     }
 
-    // NEW: Master Brightness Slider
     fun setAreaBrightness(area: HaArea, brightness: Int, token: String) {
-        // Optimistic
-        val currentList = _lights.value.toMutableList()
-        val updatedList = currentList.map { item ->
-            if (item.areaId == area.areaId) {
-                val newAttribs = item.attributes.copy(brightness = brightness)
-                item.copy(state = "on", attributes = newAttribs)
-            } else {
-                item
-            }
-        }
-        _lights.value = updatedList
-
         viewModelScope.launch {
             try {
                 val payload = AreaBrightnessPayload(areaId = area.areaId, brightness = brightness)
                 apiService?.turnOnAreaLight("Bearer $token", payload)
-            } catch (e: Exception) { e.printStackTrace() }
+            } catch (e: Exception) { }
         }
     }
 
-    // --- AUTH FLOW ---
     fun startLoginFlow(baseUrl: String) {
+        // ... (unverändert)
         val cleanUrl = if (baseUrl.endsWith("/")) baseUrl.dropLast(1) else baseUrl
         viewModelScope.launch {
             context.dataStore.edit { it[URL_KEY] = cleanUrl }
@@ -297,6 +402,7 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
     }
 
     private suspend fun exchangeCodeForToken(code: String) {
+        // ... (unverändert)
         try {
             val prefs = context.dataStore.data.first()
             var baseUrl = prefs[URL_KEY] ?: return
@@ -304,7 +410,11 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
             val retrofit = Retrofit.Builder().baseUrl("$baseUrl/").addConverterFactory(GsonConverterFactory.create()).build()
             val tempService = retrofit.create(HomeAssistantService::class.java)
             val response = tempService.getToken(code = code, clientId = CLIENT_ID, redirectUri = REDIRECT_URI)
-            context.dataStore.edit { it[TOKEN_KEY] = response.accessToken }
+
+            context.dataStore.edit {
+                it[TOKEN_KEY] = response.accessToken
+                if (response.refreshToken != null) it[REFRESH_TOKEN_KEY] = response.refreshToken
+            }
             initConnection(baseUrl, response.accessToken)
             _authState.value = AuthState.LoggedIn
         } catch (e: Exception) {
@@ -316,6 +426,9 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
         webSocket?.close(1000, "Logout")
         viewModelScope.launch {
             context.dataStore.edit { it.clear() }
+            _lights.value = emptyList()
+            _areas.value = emptyList()
+            _sensors.value = emptyList() // Clear sensors too
             _authState.value = AuthState.LoggedOut
         }
     }

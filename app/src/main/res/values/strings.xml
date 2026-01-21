@@ -1,3 +1,74 @@
 <resources>
     <string name="app_name">HA Controller</string>
+    <string name="login_welcome_title">Welcome to HA Controller</string>
+    <string name="login_welcome_message">Connect your Home Assistant to begin.</string>
+    <string name="login_url_label">Instance URL</string>
+    <string name="login_url_placeholder">http://192.168.1.x:8123</string>
+    <string name="login_connect_button">Connect</string>
+
+    <!-- Home Screen -->
+    <string name="home_title">My Home</string>
+    <string name="devices_title">All Devices</string>
+    <string name="settings">Settings</string>
+    <string name="tab_rooms">Rooms</string>
+    <string name="tab_devices">Devices</string>
+    <string name="tab_sensors">Sensors</string>
+    <string name="filter_all">All</string>
+    <string name="no_rooms_found">No rooms found.</string>
+    <string name="no_lights_found">No lights found.</string>
+    <string name="no_sensors_found">No sensors found</string>
+    <string name="master_brightness">Master Brightness</string>
+    <string name="devices_list_title">Devices</string>
+    <string name="unknown_device_name">Unknown</string>
+    <string name="status_on">ON</string>
+    <string name="status_off">OFF</string>
+    <string name="brightness_percent">%1$d%%</string>
+    <string name="room_status_on_count">%1$d / %2$d On</string>
+    <string name="room_status_empty">Empty</string>
+    <string name="light_settings_title">Light Settings</string>
+    <string name="brightness_label">Brightness</string>
+    <string name="color_label">Color</string>
+    <string name="temperature_presets_label">Temperature Presets</string>
+    <string name="preset_cool">Cool</string>
+    <string name="preset_neutral">Neutral</string>
+    <string name="preset_warm">Warm</string>
+    <string name="preset_fire">Fire</string>
+    <string name="preset_2000k">2000K</string>
+    <string name="preset_2700k">2700K</string>
+    <string name="preset_3000k">3000K</string>
+    <string name="preset_5000k">5000K</string>
+    <string name="preset_6000k">6000K</string>
+
+    <!-- Sensor Status Labels -->
+    <string name="state_open">Open</string>
+    <string name="state_closed">Closed</string>
+    <string name="state_unlocked">Unlocked</string>
+    <string name="state_locked">Locked</string>
+    <string name="state_wet">Wet</string>
+    <string name="state_dry">Dry</string>
+    <string name="state_alert">Alert</string>
+    <string name="state_ok">OK</string>
+    <string name="state_low">Low</string>
+    <string name="state_connected">Connected</string>
+    <string name="state_disconnected">Disconnected</string>
+    <string name="state_detected">Detected</string>
+    <string name="state_clear">Clear</string>
+    <string name="sensor_default_name">Sensor</string>
+
+    <!-- Settings Screen -->
+    <string name="settings_back">Back</string>
+    <string name="settings_hello">Hello, %1$s</string>
+    <string name="settings_core">Core</string>
+    <string name="settings_not_available">N/A</string>
+    <string name="settings_server">Server</string>
+    <string name="settings_online">Online</string>
+    <string name="settings_connection">Connection</string>
+    <string name="settings_instance_url">Instance URL</string>
+    <string name="settings_disconnect">Disconnect Account</string>
+    <string name="settings_tab_general">General</string>
+    <string name="settings_tab_batteries">Batteries</string>
+    <string name="settings_no_batteries">No battery sensors found</string>
+    <string name="settings_device_status">Device Status</string>
+    <string name="settings_unknown_device">Unknown Device</string>
+    <string name="settings_battery_level">%1$d%%</string>
 </resources>

@@ -12,14 +12,17 @@
     <string name="settings">Ustawienia</string>
     <string name="tab_rooms">Pokoje</string>
     <string name="tab_devices">Urządzenia</string>
+    <string name="tab_sensors">Czujniki</string>
     <string name="filter_all">Wszystkie</string>
     <string name="no_rooms_found">Nie znaleziono pokojów.</string>
     <string name="no_lights_found">Nie znaleziono świateł.</string>
+    <string name="no_sensors_found">Nie znaleziono czujników</string>
     <string name="master_brightness">Jasność główna</string>
     <string name="devices_list_title">Urządzenia</string>
     <string name="unknown_device_name">Nieznane</string>
     <string name="status_on">WŁ.</string>
     <string name="status_off">WYŁ.</string>
+    <string name="brightness_percent">%1$d%%</string>
     <string name="room_status_on_count">%1$d / %2$d Wł.</string>
     <string name="room_status_empty">Pusty</string>
     <string name="light_settings_title">Ustawienia światła</string>
@@ -30,6 +33,27 @@
     <string name="preset_neutral">Neutralne</string>
     <string name="preset_warm">Ciepłe</string>
     <string name="preset_fire">Ogień</string>
+    <string name="preset_2000k">2000K</string>
+    <string name="preset_2700k">2700K</string>
+    <string name="preset_3000k">3000K</string>
+    <string name="preset_5000k">5000K</string>
+    <string name="preset_6000k">6000K</string>
+
+    <!-- Sensor Status Labels -->
+    <string name="state_open">Otwarte</string>
+    <string name="state_closed">Zamknięte</string>
+    <string name="state_unlocked">Odblokowane</string>
+    <string name="state_locked">Zablokowane</string>
+    <string name="state_wet">Mokro</string>
+    <string name="state_dry">Sucho</string>
+    <string name="state_alert">Alarm</string>
+    <string name="state_ok">OK</string>
+    <string name="state_low">Niski</string>
+    <string name="state_connected">Połączono</string>
+    <string name="state_disconnected">Rozłączono</string>
+    <string name="state_detected">Wykryto</string>
+    <string name="state_clear">Czysto</string>
+    <string name="sensor_default_name">Czujnik</string>
 
     <!-- Settings Screen -->
     <string name="settings_back">Powrót</string>
@@ -41,4 +65,10 @@
     <string name="settings_connection">Połączenie</string>
     <string name="settings_instance_url">URL instancji</string>
     <string name="settings_disconnect">Odłącz konto</string>
+    <string name="settings_tab_general">Ogólne</string>
+    <string name="settings_tab_batteries">Baterie</string>
+    <string name="settings_no_batteries">Nie znaleziono czujników baterii</string>
+    <string name="settings_device_status">Status urządzenia</string>
+    <string name="settings_unknown_device">Nieznane urządzenie</string>
+    <string name="settings_battery_level">%1$d%%</string>
 </resources>

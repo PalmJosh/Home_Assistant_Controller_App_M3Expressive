@@ -4,28 +4,29 @@ import android.content.Intent
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
-import androidx.activity.viewModels // Ensure this import exists
-import androidx.compose.foundation.isSystemInDarkTheme
+import androidx.activity.viewModels
+import androidx.compose.animation.AnimatedContentTransitionScope
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
-import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.Modifier
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
+import com.josh.hacontroller.ui.theme.HAControllerTheme
 
 class MainActivity : ComponentActivity() {
 
-    // Use viewModels() so the instance survives config changes and is ready immediately
     private val viewModel: MainViewModel by viewModels()
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-
-        // Check for Cold Start (App launched from link while closed)
         handleIntent(intent)
-
         setContent {
-            AppTheme {
+            HAControllerTheme {
                 MainApp(viewModel)
             }
         }
@@ -33,15 +34,13 @@ class MainActivity : ComponentActivity() {
 
     override fun onNewIntent(intent: Intent) {
         super.onNewIntent(intent)
-        // Check for Warm Start (App brought to front by link)
-        setIntent(intent) // Update the activity's intent property
+        setIntent(intent)
         handleIntent(intent)
     }
 
     private fun handleIntent(intent: Intent?) {
         if (intent?.action == Intent.ACTION_VIEW) {
             val uri = intent.data
-            // Check if this is the Home Assistant callback
             if (uri != null && uri.toString().startsWith("homeassistant://auth-callback")) {
                 viewModel.handleAuthCallback(uri)
             }
@@ -52,14 +51,11 @@ class MainActivity : ComponentActivity() {
 @Composable
 fun MainApp(viewModel: MainViewModel) {
     val navController = rememberNavController()
-    // Collect the AuthState as a State object so Compose reacts to changes
     val authState by viewModel.authState.collectAsState()
 
-    // Listen for state changes to navigate
     LaunchedEffect(authState) {
         when (authState) {
             is MainViewModel.AuthState.LoggedIn -> {
-                // Navigate only if we are not already on home
                 if (navController.currentDestination?.route != "home") {
                     navController.navigate("home") {
                         popUpTo("login") { inclusive = true }
@@ -73,36 +69,60 @@ fun MainApp(viewModel: MainViewModel) {
                     }
                 }
             }
-            else -> { /* Loading or Error - stay put or show snackbar */ }
+            else -> { }
         }
     }
 
-    NavHost(navController = navController, startDestination = "login") {
-        composable("login") {
-            LoginScreen(viewModel = viewModel)
-        }
-        composable("home") {
-            HomeScreen(navController = navController, viewModel = viewModel)
-        }
-        composable("settings") {
-            SettingsScreen(navController = navController, viewModel = viewModel)
-        }
-    }
-}
+    // 1. Safety Net: Surface ensures no white background ever shows
+    Surface(
+        modifier = Modifier.fillMaxSize(),
+        color = MaterialTheme.colorScheme.background
+    ) {
+        NavHost(navController = navController, startDestination = "login") {
 
-// --- Keep your existing AppTheme here ---
-@Composable
-fun AppTheme(
-    darkTheme: Boolean = isSystemInDarkTheme(),
-    content: @Composable () -> Unit
-) {
-    val context = LocalContext.current
-    val colorScheme = when {
-        android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.S -> {
-            if (darkTheme) dynamicDarkColorScheme(context) else dynamicLightColorScheme(context)
+            composable(
+                route = "login",
+                exitTransition = { fadeOut(animationSpec = tween(300)) },
+                popEnterTransition = { fadeIn(animationSpec = tween(300)) }
+            ) {
+                LoginScreen(viewModel = viewModel)
+            }
+
+            composable(
+                route = "home",
+                enterTransition = { fadeIn(animationSpec = tween(300)) },
+                // 2. FIXED: When going to Settings, DON'T move Home. Just fade it out slightly.
+                // This keeps it underneath the Settings screen sliding up.
+                exitTransition = {
+                    fadeOut(animationSpec = tween(300))
+                },
+                // When coming back from Settings, just fade back in.
+                popEnterTransition = {
+                    fadeIn(animationSpec = tween(300))
+                }
+            ) {
+                HomeScreen(navController = navController, viewModel = viewModel)
+            }
+
+            composable(
+                route = "settings",
+                // 3. FIXED: Settings slides UP over the stationary Home screen
+                enterTransition = {
+                    slideIntoContainer(
+                        towards = AnimatedContentTransitionScope.SlideDirection.Left,
+                        animationSpec = tween(400)
+                    )
+                },
+                // Settings slides DOWN revealing the Home screen
+                popExitTransition = {
+                    slideOutOfContainer(
+                        towards = AnimatedContentTransitionScope.SlideDirection.Right,
+                        animationSpec = tween(400)
+                    )
+                }
+            ) {
+                SettingsScreen(navController = navController, viewModel = viewModel)
+            }
         }
-        darkTheme -> darkColorScheme()
-        else -> lightColorScheme()
     }
-    MaterialTheme(colorScheme = colorScheme, content = content)
 }
