@@ -53,7 +53,7 @@ To use this application, you need:
 
 1.  **Home Assistant Instance:** A running installation of Home Assistant (Core, Container, or OS).
 2.  **Access:** Credentials to log in to your instance.
-3.  **Android Device:** Android 12 or higher (recommended for full Material You dynamic coloring support).
+3.  **Android Device:** Android 8 or higher (Android 12 recommended for full Material You dynamic coloring support).
 
 ---
 
